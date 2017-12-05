@@ -1,4 +1,5 @@
-#define EASYMODE
+// #define OPTIMIZED
+#define DEBUG
 #include "Internals.h"
 
 void setup()
@@ -8,5 +9,6 @@ void setup()
 
 void loop()
 {
-	Serial.println(magnetVal());
+	debug(magnetVal());
+	debug("\n");
 }	
