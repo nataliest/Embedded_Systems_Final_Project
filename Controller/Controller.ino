@@ -9,6 +9,6 @@ void setup()
 
 void loop()
 {
-	debug(magnetVal());
-	debug("\n");
+	debug(imuVal());
+  debug("\n");
 }	

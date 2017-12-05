@@ -12,6 +12,9 @@
 #endif
 
 #include <Wire.h>
+#include "I2Cdev.h"
+#include "MPU6050_6Axis_MotionApps20.h"
+
 ////////////////////////
 
 
@@ -26,12 +29,12 @@
 #endif
 
 #ifdef OPTIMIZED
-typedef uint16_t Angle
+typedef uint16_t Angle;
 #else
-typedef float Angle
+typedef float Angle;
 #endif
 
-#define MAGNET_ADDR 0x1E
+
 ////////////////////////
 
 
@@ -39,6 +42,7 @@ typedef float Angle
 ////////////////////////
 //GLOBALS
 ////////////////////////
+
 #ifdef OPTIMIZED
 const Angle ANGLE_MIN = 0;
 const Angle ANGLE_MAX = 0;
@@ -52,11 +56,13 @@ uint16_t DIST_MAX = 0;
 
 const int8_t FMT_MIN = -127;
 const int8_t FMT_MAX = 127;
+
+MPU6050 mpu;
 ////////////////////////
 
 
 
-template<class F, class T = F> map(const F& value, const F& fromLow, const F& fromHigh, const T& toLow, const T& toHigh)
+template<class F, class T = F> T map(const F& value, const F& fromLow, const F& fromHigh, const T& toLow, const T& toHigh)
 {
 	return (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + fromLow;
 }
@@ -94,10 +100,7 @@ void initialize()
 	ADCSRB = 0b00000000;
 #else
 	Wire.begin();
-	Wire.beginTransmission(MAGNET_ADDR); //open communication with HMC5883
-	Wire.write(0x2); //select mode register
-	Wire.write(0x0); //continuous measurement mode
-	Wire.endTransmission();
+  TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
 #endif
 }
 
@@ -110,29 +113,7 @@ uint16_t photoVal()
 #endif
 }
 
-short magnetVal()
-{
-	static short lastValX = 0;
-	static short lastValY = 0;
-	static short lastValZ = 0;
-#ifdef OPTIMIZED
-#else
-	Wire.beginTransmission(MAGNET_ADDR); //open communication with HMC5883
-	Wire.write(0x3); //select register 3, X MSB register
-	Wire.endTransmission();
-	Wire.requestFrom(MAGNET_ADDR, 6); //Request 2 bytes at register 3
-	if(Wire.available() >= 6)
-	{
-		lastValX = Wire.read() << 8;
-		lastValX |= Wire.read();
-		lastValY = Wire.read() << 8;
-		lastValY |= Wire.read();
-		lastValZ = Wire.read() << 8;
-		lastValZ |= Wire.read();
-	}
-	return lastValX;
-#endif
-}
+
 
 Angle imuVal()
 {
@@ -165,32 +146,32 @@ Angle imuVal()
 		{
 			calib_offset = prev_x;
 		}
-		debug("Calibrated value\t");
+//		debug("Calibrated value\t");
 	  
 	}
 	else
 	{
-		debug("x axis\t");
+//		debug("x axis\t");
 		prev_x = curr_x;
 	} 
 	if ((ypr[0] - calib_offset) < 0)
 	{
 		Angle output = max(ANGLE_MIN, (ypr[0] - calib_offset));
-		debug(output);
+//		debug(output);
 		return output;
 	}
 	else
 	{
 		Angle output = min(ANGLE_MAX, (ypr[0] - calib_offset));
-		debug(output);
+//		debug(output);
 		return output;
 	}
 #endif
 }
 
-void mapAndSendData(const short& photo_value, const Angle& imu_value)
+void mapAndSendData(const uint16_t& photo_value, const Angle& imu_value)
 {
 	int8_t angle = map(imu_value, ANGLE_MIN, ANGLE_MAX, FMT_MIN, FMT_MAX);
-	uint8_t photo_value = map(photo_value, DIST_MIN, DIST_MAX, uint8_t(0), uint8_t(255));
+	uint8_t dist = map(photo_value, DIST_MIN, DIST_MAX, uint8_t(0), uint8_t(255));
 	
 }

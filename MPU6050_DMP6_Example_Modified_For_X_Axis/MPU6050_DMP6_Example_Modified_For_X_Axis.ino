@@ -145,7 +145,7 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\
 float curr_x;
 float prev_x = 0;
 float init_time;
-short CALIB_TIME = 20000; // calibrate for 20s
+short CALIB_TIME = 30000; // calibrate for 20s
 float forward_direction;
 float calib_offset = 0;
 
