@@ -1,20 +1,12 @@
 ////////////////////////
 //INCLUDES
 ////////////////////////
-#ifdef DEBUG
 #include <Arduino.h>
-#endif
-
-#ifdef OPTIMIZED
-#include <cstdint>
-#else
-#include <Arduino.h>
-#endif
-
+#include <stdint.h>
 #include <Wire.h>
+#include <math.h>
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
-
 ////////////////////////
 
 
@@ -27,14 +19,6 @@
 #else
 #define debug(t) 
 #endif
-
-#ifdef OPTIMIZED
-typedef uint16_t Angle;
-#else
-typedef float Angle;
-#endif
-
-
 ////////////////////////
 
 
@@ -42,14 +26,8 @@ typedef float Angle;
 ////////////////////////
 //GLOBALS
 ////////////////////////
-
-#ifdef OPTIMIZED
-const Angle ANGLE_MIN = 0;
-const Angle ANGLE_MAX = 0;
-#else
-const Angle ANGLE_MIN = -1.047f;
-const Angle ANGLE_MAX =  1.047f;
-#endif
+const float ANGLE_MIN = -1.047f;
+const float ANGLE_MAX =  1.047f;
 
 uint16_t DIST_MIN = 0;
 uint16_t DIST_MAX = 0;
@@ -57,10 +35,20 @@ uint16_t DIST_MAX = 0;
 const int8_t FMT_MIN = -127;
 const int8_t FMT_MAX = 127;
 
+float calib_offset;
+
 MPU6050 mpu;
+volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
+bool dmpReady = false;  // set true if DMP init was successful
+uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+uint16_t fifoCount;     // count of all bytes currently in FIFO
 ////////////////////////
 
 
+
+void dmpDataReady() { mpuInterrupt = true; }
 
 template<class F, class T = F> T map(const F& value, const F& fromLow, const F& fromHigh, const T& toLow, const T& toHigh)
 {
@@ -72,10 +60,8 @@ template<class F, class T = F> T map(const F& value, const F& fromLow, const F& 
 void initialize()
 {
 #ifdef DEBUG
-	Serial.begin(9600);
+	Serial.begin(115200);
 #endif
-
-#ifdef OPTIMIZED
 	//ADMUX
 	//	7-6: Reference Voltage = Vcc
 	//	  5: Analog Input Data will be right-aligned
@@ -98,80 +84,144 @@ void initialize()
 	//	5-3: Unused
 	//	2-0: Free Running Mode
 	ADCSRB = 0b00000000;
-#else
 	Wire.begin();
-  TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
-#endif
+	TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
+
+	// initialize device
+    debug("Initializing I2C devices...\n");
+    mpu.initialize();
+
+    // verify connection
+    debug("Testing device connections...\n");
+    debug(mpu.testConnection() ? "MPU6050 connection successful\n" : "MPU6050 connection failed\n");
+
+    // load and configure the DMP
+    debug("Initializing DMP...\n");
+    devStatus = mpu.dmpInitialize();
+
+    // supply your own gyro offsets here, scaled for min sensitivity
+    mpu.setXGyroOffset(220);
+    mpu.setYGyroOffset(76);
+    mpu.setZGyroOffset(-85);
+    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
+
+    // make sure it worked (returns 0 if so)
+    if (devStatus == 0)
+    {
+        // turn on the DMP, now that it's ready
+        debug("Enabling DMP...\n");
+        mpu.setDMPEnabled(true);
+
+        // enable Arduino interrupt detection
+        debug("Enabling interrupt detection (Arduino external interrupt 0)...\n");
+        attachInterrupt(0, dmpDataReady, RISING);
+        mpuIntStatus = mpu.getIntStatus();
+
+        // set our DMP Ready flag so the main loop() function knows it's okay to use it
+        debug("DMP ready! Waiting for first interrupt...\n");
+        dmpReady = true;
+
+        // get expected DMP packet size for later comparison
+        packetSize = mpu.dmpGetFIFOPacketSize();
+    }
+    else
+    {
+        // ERROR!
+        // 1 = initial memory load failed
+        // 2 = DMP configuration updates failed
+        // (if it's going to break, usually the code will be 1)
+        debug("DMP Initialization failed (code ");
+        debug(devStatus);
+        debug(")\n");
+    }
 }
 
 uint16_t photoVal()
 {
-#ifdef OPTIMIZED
 	return *((uint16_t*)0x78) & 0x3ff;
-#else
-	return analogRead(A0);
-#endif
 }
 
-
-
-Angle imuVal()
+float getIMUX()
 {
-#ifdef OPTIMIZED
-#else
 	static uint8_t fifoBuffer[64]; // FIFO storage buffer
 	static Quaternion q;           // [w, x, y, z]         quaternion container
 	static VectorFloat gravity;    // [x, y, z]            gravity vector
 
-	static Angle ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
-	static Angle curr_x;
-	static Angle prev_x;
-	Angle calib_offset;
+	static float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
-	static long init_time;
-	short CALIB_TIME = 20000;
+	// reset interrupt flag and get INT_STATUS byte
+    mpuInterrupt = false;
+    mpuIntStatus = mpu.getIntStatus();
 
-	mpu.dmpGetQuaternion(&q, fifoBuffer);
-	mpu.dmpGetGravity(&gravity, &q);
-	mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-	curr_x = ypr[0];
-	
-	if ((millis() - init_time) > CALIB_TIME)
-	{
-	 	if (prev_x < 0)
-	 	{
-			calib_offset = prev_x * -1;
-		}
-		else
-		{
-			calib_offset = prev_x;
-		}
-//		debug("Calibrated value\t");
-	  
-	}
-	else
-	{
-//		debug("x axis\t");
-		prev_x = curr_x;
-	} 
-	if ((ypr[0] - calib_offset) < 0)
-	{
-		Angle output = max(ANGLE_MIN, (ypr[0] - calib_offset));
-//		debug(output);
-		return output;
-	}
-	else
-	{
-		Angle output = min(ANGLE_MAX, (ypr[0] - calib_offset));
-//		debug(output);
-		return output;
-	}
-#endif
+    // get current FIFO count
+    fifoCount = mpu.getFIFOCount();
+
+    // check for overflow (this should never happen unless our code is too inefficient)
+    if ((mpuIntStatus & 0x10) || fifoCount == 1024)
+    {
+        // reset so we can continue cleanly
+        mpu.resetFIFO();
+        debug("FIFO overflow!");
+    // otherwise, check for DMP data ready interrupt (this should happen frequently)
+    }
+    else if (mpuIntStatus & 0x02)
+    {
+    	// wait for correct available data length, should be a VERY short wait
+        while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+
+        // read a packet from FIFO
+        mpu.getFIFOBytes(fifoBuffer, packetSize);
+        
+        // track FIFO count here in case there is > 1 packet available
+        // (this lets us immediately read more without waiting for an interrupt)
+        fifoCount -= packetSize;
+		mpu.dmpGetQuaternion(&q, fifoBuffer);
+		mpu.dmpGetGravity(&gravity, &q);
+		mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+		return ypr[0];
+    }
+    return 0;
 }
 
-void mapAndSendData(const uint16_t& photo_value, const Angle& imu_value)
+void calibrateIMU()
+{
+	static const uint16_t CALIB_TIME = 5000;
+	static long init_time = millis();
+	static float x_prev = 0;
+	float x_curr = 0;
+	do
+	{
+		// if programming failed, don't try to do anything
+	    if (!dmpReady) return;
+
+	    // wait for MPU interrupt or extra packet(s) available
+	    while (!mpuInterrupt && fifoCount < packetSize);
+	    x_curr = getIMUX();
+	    if(x_curr == 0) x_curr = x_prev;
+	    debug(millis() - init_time);
+	    debug("\t");
+	    debug(x_prev);
+	    debug("\t");
+	    debug(x_curr);
+	    debug("\n");
+	    if(fabs(x_curr - x_prev) >= 0.01f) init_time = millis();
+	    x_prev = x_curr;
+	}
+    while(millis() - init_time < CALIB_TIME);
+    debug("Calibrated!");
+    calib_offset = fabs(x_curr);
+}
+
+float imuVal()
+{
+	float x = getIMUX();
+	float output = ((x-calib_offset < 0) ? max(ANGLE_MIN, x - calib_offset) : min(ANGLE_MAX, x - calib_offset));
+	// debug(ouptut);
+	return output;
+}
+
+void mapAndSendData(const uint16_t& photo_value, const float& imu_value)
 {
 	int8_t angle = map(imu_value, ANGLE_MIN, ANGLE_MAX, FMT_MIN, FMT_MAX);
 	uint8_t dist = map(photo_value, DIST_MIN, DIST_MAX, uint8_t(0), uint8_t(255));
-	
 }
