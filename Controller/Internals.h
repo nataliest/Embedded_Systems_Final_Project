@@ -18,8 +18,10 @@
 ////////////////////////
 #ifdef DEBUG
 #define debug(t) Serial.print(t)
+#define debugln(t) Serial.println(t)
 #else
 #define debug(t) 
+#define debugln(t) 
 #endif
 ////////////////////////
 
@@ -110,15 +112,15 @@ void initialize()
 	TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
 
 	// initialize device
-    debug("Initializing I2C devices...\n");
+    debugln("Initializing I2C devices...");
     mpu.initialize();
 
     // verify connection
-    debug("Testing device connections...\n");
-    debug(mpu.testConnection() ? "MPU6050 connection successful\n" : "MPU6050 connection failed\n");
+    debugln("Testing device connections...");
+    debugln(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
     // load and configure the DMP
-    debug("Initializing DMP...\n");
+    debugln("Initializing DMP...");
     devStatus = mpu.dmpInitialize();
 
     // supply your own gyro offsets here, scaled for min sensitivity
@@ -131,16 +133,16 @@ void initialize()
     if (devStatus == 0)
     {
         // turn on the DMP, now that it's ready
-        debug("Enabling DMP...\n");
+        debugln("Enabling DMP...");
         mpu.setDMPEnabled(true);
 
         // enable Arduino interrupt detection
-        debug("Enabling interrupt detection (Arduino external interrupt 0)...\n");
+        debugln("Enabling interrupt detection (Arduino external interrupt 0)...");
         attachInterrupt(0, dmpDataReady, RISING);
         mpuIntStatus = mpu.getIntStatus();
 
         // set our DMP Ready flag so the main loop() function knows it's okay to use it
-        debug("DMP ready! Waiting for first interrupt...\n");
+        debugln("DMP ready! Waiting for first interrupt...");
         dmpReady = true;
 
         // get expected DMP packet size for later comparison
@@ -154,7 +156,7 @@ void initialize()
         // (if it's going to break, usually the code will be 1)
         debug("DMP Initialization failed (code ");
         debug(devStatus);
-        debug(")\n");
+        debugln(")");
     }
 
     init_radio_controller();
@@ -233,10 +235,10 @@ void calibrateIMU()
             init_time = millis();
         }
         x_curr = getIMUX();
-              Serial.print("curr\t");
-              Serial.println(x_curr);
-              Serial.print("prev\t");
-              Serial.println(x_prev);
+              debug("curr\t");
+              debugln(x_curr);
+              debug("prev\t");
+              debugln(x_prev);
 	}
     while(x_curr != x_prev);
 
@@ -244,7 +246,7 @@ void calibrateIMU()
     
     debug("Calibrated!");
     calib_offset = x_curr;
-    Serial.println(x_curr);
+    debugln(x_curr);
 }
 
 float imuVal()

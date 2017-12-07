@@ -24,5 +24,5 @@ void loop()
     debug(imu);
 //    debug("\t");
 //    mapAndSendData(photo, imu);
-    debug("\n");
+    debugln();
 }	
