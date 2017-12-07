@@ -28,16 +28,23 @@
 ////////////////////////
 //GLOBALS
 ////////////////////////
+uint64_t RadioId = 0xED01D0B01ECCDD1F; //chosen at random to be different from other radios
+
 const float ANGLE_MIN = -1.047f;
 const float ANGLE_MAX =  1.047f;
 
 uint16_t DIST_MIN = 0;
 uint16_t DIST_MAX = 0;
 
-const int8_t FMT_MIN = -127;
-const int8_t FMT_MAX = 127;
+const int8_t TRN_MIN = -127;
+const int8_t TRN_MAX = 127;
+
+const uint8_t SPD_MIN = 0;
+const uint8_t SPD_MAX = 255;
 
 float calib_offset;
+
+RF24 radio(7,8);
 
 MPU6050 mpu;
 volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
@@ -56,6 +63,10 @@ float getIMUX();
 void calibrateIMU();
 float imuVal();
 void mapAndSendData();
+void init_radio_controller();
+void init_radio_car();
+
+
 
 void dmpDataReady() { mpuInterrupt = true; }
 
@@ -231,7 +242,23 @@ float imuVal()
 
 void mapAndSendData(const uint16_t& photo_value, const float& imu_value)
 {
-	int8_t angle = map(imu_value, ANGLE_MIN, ANGLE_MAX, FMT_MIN, FMT_MAX);
-	uint8_t dist = map(photo_value, DIST_MIN, DIST_MAX, uint8_t(0), uint8_t(255));
+	int8_t angle = map(imu_value, ANGLE_MIN, ANGLE_MAX, TRN_MIN, TRN_MAX);
+	uint8_t dist = map(photo_value, DIST_MIN, DIST_MAX, SPD_MIN, SPD_MAX);
+	uint16_t squished = angle << 8 | dist;
+	radio.write(&squished, sizeof(uint16_t));
 }
 
+void init_radio_controller()
+{
+	radio.begin();
+    radio.setPALevel(RF24_PA_LOW);
+    radio.openWritingPipe(RadioId);
+}
+
+void init_radio_car()
+{
+	radio.begin();
+    radio.setPALevel(RF24_PA_LOW);
+    radio.openReadingPipe(1, RadioId);
+    radio.startListening();
+}
