@@ -44,6 +44,8 @@ const uint8_t SPD_MAX = 255;
 
 float calib_offset;
 
+
+
 RF24 radio(9,10);
 
 MPU6050 mpu;
@@ -207,10 +209,10 @@ float getIMUX()
 
 void calibrateIMU()
 {
-	static const uint16_t CALIB_TIME = 5000;
+	static const uint16_t CALIB_TIME = 2500;
 	static long init_time = millis();
 	static float x_prev = 0;
-	float x_curr = 0;
+	float x_curr = 0.1f;
 	do
 	{
 		// if programming failed, don't try to do anything
@@ -218,20 +220,17 @@ void calibrateIMU()
 
 	    // wait for MPU interrupt or extra packet(s) available
 	    while (!mpuInterrupt && fifoCount < packetSize);
-	    x_curr = getIMUX();
-	    if(x_curr == 0) x_curr = x_prev;
-	    debug(millis() - init_time);
-	    debug("\t");
-	    debug(x_prev);
-	    debug("\t");
-	    debug(x_curr);
-	    debug("\n");
-	    if(fabs(x_curr - x_prev) >= 0.01f) init_time = millis();
-	    x_prev = x_curr;
+        
+        if(millis() - init_time >= CALIB_TIME)
+        {
+            x_prev = x_curr;
+            init_time = millis();
+        }
+        x_curr = getIMUX();
 	}
-    while(millis() - init_time < CALIB_TIME);
+    while(x_curr != x_prev);
     debug("Calibrated!");
-    calib_offset = fabs(x_curr);
+    calib_offset = x_curr;
 }
 
 float imuVal()

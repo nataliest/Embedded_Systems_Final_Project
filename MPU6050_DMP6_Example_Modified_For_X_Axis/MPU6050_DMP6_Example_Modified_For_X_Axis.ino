@@ -119,8 +119,8 @@ MPU6050 mpu;
 #define ONLY_X
 
 
-#define LED_PIN 13 // (Arduino is 13, Teensy is 11, Teensy++ is 6)
-bool blinkState = false;
+//#define LED_PIN 13 // (Arduino is 13, Teensy is 11, Teensy++ is 6)
+//bool blinkState = false;
 
 // MPU control/status vars
 bool dmpReady = false;  // set true if DMP init was successful
@@ -142,13 +142,14 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 // packet structure for InvenSense teapot demo
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
-float curr_x;
+float curr_x = -1;
 float prev_x = 0;
 float init_time;
 short CALIB_TIME = 30000; // calibrate for 20s
+short CALIB_TIMEE = 2500;
 float forward_direction;
 float calib_offset = 0;
-
+bool calibrated = false;
 float output_val;
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -238,9 +239,10 @@ void setup() {
         Serial.print(devStatus);
         Serial.println(F(")"));
     }
+//    calibrate();
 
     // configure LED for output
-    pinMode(LED_PIN, OUTPUT);
+//    pinMode(LED_PIN, OUTPUT);
 }
 
 
@@ -250,6 +252,7 @@ void setup() {
 // ================================================================
 
 void loop() {
+//  Serial.println("inloop");
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
 
@@ -291,39 +294,134 @@ void loop() {
         // track FIFO count here in case there is > 1 packet available
         // (this lets us immediately read more without waiting for an interrupt)
         fifoCount -= packetSize;
+
+
   
         #ifdef ONLY_X
+
             mpu.dmpGetQuaternion(&q, fifoBuffer);
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
             curr_x = ypr[0];
-            
-            if ((millis() - init_time) > CALIB_TIME) {
-              if (prev_x < 0) {
-                calib_offset = prev_x * -1;
-              } else {
-                calib_offset = prev_x;
+
+            if (!calibrated) {
+              if (curr_x == prev_x) {
+  
+                 calib_offset = prev_x;
+                calibrated = true;
+                Serial.print("Calibrated value\t");
+                
+              } else if (curr_x != prev_x) {
+                if (millis() - init_time > CALIB_TIMEE) {
+                Serial.print("x axis\t");
+                prev_x = curr_x;
+                Serial.println(curr_x);
+                init_time = millis();
+                prev_x = curr_x;
+                }
               }
-              Serial.print("Calibrated value\t");
-              
             } else {
-              Serial.print("x axis\t");
-              prev_x = curr_x;
-            } 
-            if ((ypr[0] - calib_offset) < 0) {
+              if ((ypr[0] - calib_offset) < 0) {
               output_val = max(-1, (ypr[0] - calib_offset));
             } else {
               output_val = min(1, (ypr[0] - calib_offset));
             }
             Serial.println(output_val);
+//            Serial.println(calib_offset);
+            } 
+//            if (!calibrated) {
+//              if (prev_x != curr_x) {
+//                  prev_x = curr_x;
+//                  delay(2000); 
+////                  mpu.dmpGetQuaternion(&q, fifoBuffer);
+////                  mpu.dmpGetGravity(&gravity, &q);
+////                  mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+//        
+//                  curr_x = ypr[0];
+//                  Serial.println("Calibrating!\n");
+//      
+//                  } else if (prev_x == curr_x) {
+//                    calibrated = true;
+//                  }
+//              } else{
+//if ((millis() - init_time) > CALIB_TIME) {
+//            if ((ypr[0] - calib_offset) < 0) {
+//              output_val = max(-1, (ypr[0] - calib_offset));
+//            } else {
+//              output_val = min(1, (ypr[0] - calib_offset));
+//            }
+//            Serial.println(output_val);
+//            Serial.println(calib_offset);}
+////            }
 //            Serial.print("\t");
 //            Serial.print(ypr[1] * 180/M_PI);
 //            Serial.print("\t");
 //            Serial.println(ypr[2] * 180/M_PI);
         #endif
 
-        // blink LED to indicate activity
-        blinkState = !blinkState;
-        digitalWrite(LED_PIN, blinkState);
+
     }
 }
+
+void calibrate() {
+  static const uint16_t CALIB_TIMEE = 5000;
+  static long init_time = millis();
+  
+  float prev_x = 99;
+//  mpu.dmpGetQuaternion(&q, fifoBuffer);
+//  mpu.dmpGetGravity(&gravity, &q);
+//  mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+            
+  float curr_x = 0;
+  bool calibrated = false;
+  while (!calibrated) {
+    if (prev_x != curr_x) {
+      prev_x = curr_x;
+      while (millis() - init_time < CALIB_TIMEE) {
+         mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        } 
+      mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        
+      curr_x = ypr[0];
+      Serial.println("Calibrating!\n");
+      Serial.println(curr_x);
+      
+    } else if (prev_x == curr_x) {
+      calibrated = true;
+    }
+    
+  }
+  calib_offset = abs(curr_x);
+  Serial.println("Calibrated!\n\n\n\n\n\n");
+  Serial.println(calib_offset);
+}
+
+//  static const uint16_t CALIB_TIME = 5000;
+//  static long init_time = millis();
+//  static float x_prev = 0;
+//  float x_curr = 0;
+//  do
+//  {
+//    // if programming failed, don't try to do anything
+//      if (!dmpReady) return;
+//
+//      // wait for MPU interrupt or extra packet(s) available
+//      while (!mpuInterrupt && fifoCount < packetSize);
+//      x_curr = getIMUX();
+//      if(x_curr == 0) x_curr = x_prev;
+//      debug(millis() - init_time);
+//      debug("\t");
+//      debug(x_prev);
+//      debug("\t");
+//      debug(x_curr);
+//      debug("\n");
+//      if(fabs(x_curr - x_prev) >= 0.01f) init_time = millis();
+//      x_prev = x_curr;
+//  }
+//    while(millis() - init_time < CALIB_TIME);
+//    debug("Calibrated!");
+//    calib_offset = fabs(x_curr);
