@@ -239,7 +239,7 @@ void setup() {
         Serial.print(devStatus);
         Serial.println(F(")"));
     }
-//    calibrate();
+    calibrate();
 
     // configure LED for output
 //    pinMode(LED_PIN, OUTPUT);
@@ -314,7 +314,7 @@ void loop() {
               } else if (curr_x != prev_x) {
                 if (millis() - init_time > CALIB_TIMEE) {
                 Serial.print("x axis\t");
-                prev_x = curr_x;
+//                prev_x = curr_x;
                 Serial.println(curr_x);
                 init_time = millis();
                 prev_x = curr_x;

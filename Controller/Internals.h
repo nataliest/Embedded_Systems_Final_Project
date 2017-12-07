@@ -186,6 +186,7 @@ float getIMUX()
         // reset so we can continue cleanly
         mpu.resetFIFO();
         debug("FIFO overflow!");
+        return 0;
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
     }
     else if (mpuIntStatus & 0x02)
@@ -199,20 +200,25 @@ float getIMUX()
         // track FIFO count here in case there is > 1 packet available
         // (this lets us immediately read more without waiting for an interrupt)
         fifoCount -= packetSize;
-		mpu.dmpGetQuaternion(&q, fifoBuffer);
-		mpu.dmpGetGravity(&gravity, &q);
-		mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-		return ypr[0];
+//		mpu.dmpGetQuaternion(&q, fifoBuffer);
+//		mpu.dmpGetGravity(&gravity, &q);
+//		mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+//		return ypr[0];
     }
-    return 0;
+    
+    mpu.dmpGetQuaternion(&q, fifoBuffer);
+    mpu.dmpGetGravity(&gravity, &q);
+    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+    return ypr[0];
 }
 
 void calibrateIMU()
 {
-	static const uint16_t CALIB_TIME = 2500;
-	static long init_time = millis();
-	static float x_prev = 0;
-	float x_curr = 0.1f;
+	static const uint16_t CALIB_TIME = 5000;
+	long init_time = millis();
+	float x_prev = 0;
+	float x_curr;
+  bool calibrated = false;
 	do
 	{
 		// if programming failed, don't try to do anything
@@ -227,10 +233,18 @@ void calibrateIMU()
             init_time = millis();
         }
         x_curr = getIMUX();
+              Serial.print("curr\t");
+              Serial.println(x_curr);
+              Serial.print("prev\t");
+              Serial.println(x_prev);
 	}
     while(x_curr != x_prev);
+
+    
+    
     debug("Calibrated!");
     calib_offset = x_curr;
+    Serial.println(x_curr);
 }
 
 float imuVal()

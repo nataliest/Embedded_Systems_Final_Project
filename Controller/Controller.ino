@@ -15,14 +15,14 @@ void loop()
 
     // wait for MPU interrupt or extra packet(s) available
     while (!mpuInterrupt && fifoCount < packetSize);
-
-    uint16_t photo = photoVal();
+    
+//    uint16_t photo = photoVal();
     float imu = imuVal();
-
-    debug(photo);
-    debug("\t");
+//
+//    debug(photo);
+//    debug("\t");
     debug(imu);
-    debug("\t");
-    mapAndSendData(photo, imu);
+//    debug("\t");
+//    mapAndSendData(photo, imu);
     debug("\n");
 }	
