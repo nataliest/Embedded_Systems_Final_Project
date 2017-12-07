@@ -112,54 +112,54 @@ void initialize()
 	TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
 
 	// initialize device
-    debugln("Initializing I2C devices...");
-    mpu.initialize();
+	debugln("Initializing I2C devices...");
+	mpu.initialize();
 
-    // verify connection
-    debugln("Testing device connections...");
-    debugln(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	// verify connection
+	debugln("Testing device connections...");
+	debugln(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
-    // load and configure the DMP
-    debugln("Initializing DMP...");
-    devStatus = mpu.dmpInitialize();
+	// load and configure the DMP
+	debugln("Initializing DMP...");
+	devStatus = mpu.dmpInitialize();
 
-    // supply your own gyro offsets here, scaled for min sensitivity
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
+	// supply your own gyro offsets here, scaled for min sensitivity
+	mpu.setXGyroOffset(220);
+	mpu.setYGyroOffset(76);
+	mpu.setZGyroOffset(-85);
+	mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
 
-    // make sure it worked (returns 0 if so)
-    if (devStatus == 0)
-    {
-        // turn on the DMP, now that it's ready
-        debugln("Enabling DMP...");
-        mpu.setDMPEnabled(true);
+	// make sure it worked (returns 0 if so)
+	if (devStatus == 0)
+	{
+		// turn on the DMP, now that it's ready
+		debugln("Enabling DMP...");
+		mpu.setDMPEnabled(true);
 
-        // enable Arduino interrupt detection
-        debugln("Enabling interrupt detection (Arduino external interrupt 0)...");
-        attachInterrupt(0, dmpDataReady, RISING);
-        mpuIntStatus = mpu.getIntStatus();
+		// enable Arduino interrupt detection
+		debugln("Enabling interrupt detection (Arduino external interrupt 0)...");
+		attachInterrupt(0, dmpDataReady, RISING);
+		mpuIntStatus = mpu.getIntStatus();
 
-        // set our DMP Ready flag so the main loop() function knows it's okay to use it
-        debugln("DMP ready! Waiting for first interrupt...");
-        dmpReady = true;
+		// set our DMP Ready flag so the main loop() function knows it's okay to use it
+		debugln("DMP ready! Waiting for first interrupt...");
+		dmpReady = true;
 
-        // get expected DMP packet size for later comparison
-        packetSize = mpu.dmpGetFIFOPacketSize();
-    }
-    else
-    {
-        // ERROR!
-        // 1 = initial memory load failed
-        // 2 = DMP configuration updates failed
-        // (if it's going to break, usually the code will be 1)
-        debug("DMP Initialization failed (code ");
-        debug(devStatus);
-        debugln(")");
-    }
+		// get expected DMP packet size for later comparison
+		packetSize = mpu.dmpGetFIFOPacketSize();
+	}
+	else
+	{
+		// ERROR!
+		// 1 = initial memory load failed
+		// 2 = DMP configuration updates failed
+		// (if it's going to break, usually the code will be 1)
+		debug("DMP Initialization failed (code ");
+		debug(devStatus);
+		debugln(")");
+	}
 
-    init_radio_controller();
+	init_radio_controller();
 }
 
 uint16_t photoVal()
@@ -176,42 +176,42 @@ float getIMUX()
 	static float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
 	// reset interrupt flag and get INT_STATUS byte
-    mpuInterrupt = false;
-    mpuIntStatus = mpu.getIntStatus();
+	mpuInterrupt = false;
+	mpuIntStatus = mpu.getIntStatus();
 
-    // get current FIFO count
-    fifoCount = mpu.getFIFOCount();
+	// get current FIFO count
+	fifoCount = mpu.getFIFOCount();
 
-    // check for overflow (this should never happen unless our code is too inefficient)
-    if ((mpuIntStatus & 0x10) || fifoCount == 1024)
-    {
-        // reset so we can continue cleanly
-        mpu.resetFIFO();
-        debug("FIFO overflow!");
-        return 0;
-    // otherwise, check for DMP data ready interrupt (this should happen frequently)
-    }
-    else if (mpuIntStatus & 0x02)
-    {
-    	// wait for correct available data length, should be a VERY short wait
-        while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+	// check for overflow (this should never happen unless our code is too inefficient)
+	if ((mpuIntStatus & 0x10) || fifoCount == 1024)
+	{
+		// reset so we can continue cleanly
+		mpu.resetFIFO();
+		debug("FIFO overflow!");
+		return 0;
+	// otherwise, check for DMP data ready interrupt (this should happen frequently)
+	}
+	else if (mpuIntStatus & 0x02)
+	{
+		// wait for correct available data length, should be a VERY short wait
+		while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
-        // read a packet from FIFO
-        mpu.getFIFOBytes(fifoBuffer, packetSize);
-        
-        // track FIFO count here in case there is > 1 packet available
-        // (this lets us immediately read more without waiting for an interrupt)
-        fifoCount -= packetSize;
+		// read a packet from FIFO
+		mpu.getFIFOBytes(fifoBuffer, packetSize);
+		
+		// track FIFO count here in case there is > 1 packet available
+		// (this lets us immediately read more without waiting for an interrupt)
+		fifoCount -= packetSize;
 //		mpu.dmpGetQuaternion(&q, fifoBuffer);
 //		mpu.dmpGetGravity(&gravity, &q);
 //		mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 //		return ypr[0];
-    }
-    
-    mpu.dmpGetQuaternion(&q, fifoBuffer);
-    mpu.dmpGetGravity(&gravity, &q);
-    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    return ypr[0];
+	}
+	
+	mpu.dmpGetQuaternion(&q, fifoBuffer);
+	mpu.dmpGetGravity(&gravity, &q);
+	mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+	return ypr[0];
 }
 
 void calibrateIMU()
@@ -224,29 +224,29 @@ void calibrateIMU()
 	do
 	{
 		// if programming failed, don't try to do anything
-	    if (!dmpReady) return;
+		if (!dmpReady) return;
 
-	    // wait for MPU interrupt or extra packet(s) available
-	    while (!mpuInterrupt && fifoCount < packetSize);
-        
-        if(millis() - init_time >= CALIB_TIME)
-        {
-            x_prev = x_curr;
-            init_time = millis();
-        }
-        x_curr = getIMUX();
-              debug("curr\t");
-              debugln(x_curr);
-              debug("prev\t");
-              debugln(x_prev);
+		// wait for MPU interrupt or extra packet(s) available
+		while (!mpuInterrupt && fifoCount < packetSize);
+		
+		if(millis() - init_time >= CALIB_TIME)
+		{
+			x_prev = x_curr;
+			init_time = millis();
+		}
+		x_curr = getIMUX();
+		debug("curr\t");
+		debugln(x_curr);
+		debug("prev\t");
+		debugln(x_prev);
 	}
-    while(x_curr != x_prev);
+	while(x_curr != x_prev);
 
-    
-    
-    debug("Calibrated!");
-    calib_offset = x_curr;
-    debugln(x_curr);
+	
+	
+	debug("Calibrated!");
+	calib_offset = x_curr;
+	debugln(x_curr);
 }
 
 float imuVal()
@@ -269,15 +269,15 @@ void mapAndSendData(const uint16_t& photo_value, const float& imu_value)
 void init_radio_controller()
 {
 	radio.begin();
-    radio.setPALevel(RF24_PA_LOW);
-    radio.openWritingPipe(RadioId);
-    radio.stopListening();
+	radio.setPALevel(RF24_PA_LOW);
+	radio.openWritingPipe(RadioId);
+	radio.stopListening();
 }
 
 void init_radio_car()
 {
 	radio.begin();
-    radio.setPALevel(RF24_PA_LOW);
-    radio.openReadingPipe(1, RadioId);
-    radio.startListening();
+	radio.setPALevel(RF24_PA_LOW);
+	radio.openReadingPipe(1, RadioId);
+	radio.startListening();
 }
