@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <Wire.h>
 #include <math.h>
+#include <SPI.h>
+#include "RF24.h"
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
 ////////////////////////
@@ -46,7 +48,14 @@ uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount;     // count of all bytes currently in FIFO
 ////////////////////////
 
-
+void dmpDataReady();
+void initialize();
+template<class F, class T = F> T map(const F&, const F&, const F&, const T&, const T&);
+uint16_t photoVal();
+float getIMUX();
+void calibrateIMU();
+float imuVal();
+void mapAndSendData();
 
 void dmpDataReady() { mpuInterrupt = true; }
 
@@ -225,3 +234,4 @@ void mapAndSendData(const uint16_t& photo_value, const float& imu_value)
 	int8_t angle = map(imu_value, ANGLE_MIN, ANGLE_MAX, FMT_MIN, FMT_MAX);
 	uint8_t dist = map(photo_value, DIST_MIN, DIST_MAX, uint8_t(0), uint8_t(255));
 }
+
