@@ -28,7 +28,7 @@
 ////////////////////////
 //GLOBALS
 ////////////////////////
-uint64_t RadioId = 0xED01D0B01ECCDD1F; //chosen at random to be different from other radios
+uint8_t RadioId[] = {0xc8, 0x1a, 0x23, 0xd1, 0xbe}; //chosen at random to be different from other radios
 
 const float ANGLE_MIN = -1.047f;
 const float ANGLE_MAX =  1.047f;
@@ -44,7 +44,7 @@ const uint8_t SPD_MAX = 255;
 
 float calib_offset;
 
-RF24 radio(7,8);
+RF24 radio(9,10);
 
 MPU6050 mpu;
 volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
@@ -154,6 +154,8 @@ void initialize()
         debug(devStatus);
         debug(")\n");
     }
+
+    init_radio_controller();
 }
 
 uint16_t photoVal()
@@ -245,6 +247,7 @@ void mapAndSendData(const uint16_t& photo_value, const float& imu_value)
 	int8_t angle = map(imu_value, ANGLE_MIN, ANGLE_MAX, TRN_MIN, TRN_MAX);
 	uint8_t dist = map(photo_value, DIST_MIN, DIST_MAX, SPD_MIN, SPD_MAX);
 	uint16_t squished = angle << 8 | dist;
+	debug(squished);
 	radio.write(&squished, sizeof(uint16_t));
 }
 
@@ -253,6 +256,7 @@ void init_radio_controller()
 	radio.begin();
     radio.setPALevel(RF24_PA_LOW);
     radio.openWritingPipe(RadioId);
+    radio.stopListening();
 }
 
 void init_radio_car()
