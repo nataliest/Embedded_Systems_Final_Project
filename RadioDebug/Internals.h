@@ -81,15 +81,11 @@ template<class F, class T = F> T map(const F& value, const F& fromLow, const F& 
 
 
 
-void initializeSerial()
+void initialize()
 {
 #ifdef DEBUG
 	Serial.begin(115200);
 #endif
-}
-
-void initializePhoto()
-{
 	//ADMUX
 	//	7-6: Reference Voltage = Vcc
 	//	  5: Analog Input Data will be right-aligned
@@ -112,10 +108,6 @@ void initializePhoto()
 	//	5-3: Unused
 	//	2-0: Free Running Mode
 	ADCSRB = 0b00000000;
-}
-
-void initializeOthers()
-{
 	Wire.begin();
 	TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
 
@@ -166,6 +158,8 @@ void initializeOthers()
 		debug(devStatus);
 		debugln(")");
 	}
+
+	init_radio_controller();
 }
 
 uint16_t photoVal()
@@ -224,23 +218,21 @@ void calibratePhoto()
 {
 	static const long CALIB_TIME = 5000;
 	long init_time = millis();
-	debugln("Calibrating Photoresistor...");
-	debugln("Leave photoresistor unobscured.");
 	while(millis() - init_time < CALIB_TIME)
 	{
+		digitalWrite(LED_BUILTIN, HIGH);
 		DIST_MAX = max(DIST_MAX, photoVal());
 	}
-	debugln("Cover photoresistor.");
 	while(millis() - init_time < CALIB_TIME * 2)
 	{
+		digitalWrite(LED_BUILTIN, LOW);
 		DIST_MIN = min(DIST_MIN, photoVal());
 	}
-	debugln("... Done.");
 }
 
 void calibrateIMU()
 {
-	static const uint16_t CALIB_TIME = 5000;
+	static const uint16_t CALIB_TIME = 2500;
 	long init_time = millis();
 	float x_prev = 0;
 	float x_curr;
@@ -277,7 +269,7 @@ void calibrateIMU()
 float imuVal()
 {
     // if programming failed, don't try to do anything
-  if (!dmpReady) return 0;
+  if (!dmpReady) return;
 
   // wait for MPU interrupt or extra packet(s) available
   while (!mpuInterrupt && fifoCount < packetSize);
@@ -297,10 +289,8 @@ void mapAndSendData(const uint16_t& photo_value, const float& imu_value)
 	int8_t angle = map(imu_value, ANGLE_MIN, ANGLE_MAX, TRN_MIN, TRN_MAX);
 	uint8_t dist = map(constrain(photo_value, DIST_MIN, DIST_MAX), DIST_MIN, DIST_MAX, SPD_MIN, SPD_MAX);
 	uint16_t squished = angle << 8 | dist;
-	debugln("Sending data...");
+	debug(squished);
 	radio.write(&squished, sizeof(uint16_t));
-	debug("Sent: ");
-	debugln(squished);
 }
 
 void init_radio_controller()
@@ -309,7 +299,6 @@ void init_radio_controller()
 	radio.setPALevel(RF24_PA_LOW);
 	radio.openWritingPipe(RadioId);
 	radio.stopListening();
-
 }
 
 void init_radio_car()
