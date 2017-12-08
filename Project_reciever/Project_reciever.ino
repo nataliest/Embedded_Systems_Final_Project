@@ -1,15 +1,12 @@
 #include <nRF24L01.h>
-#include <printf.h>
 #include <RF24.h>
 #include <RF24_config.h>
 #include <SPI.h>
+//#include "Internals.h"
 
 //Globals as set up in the "gettingstarted" radio program
-bool radioNumber = 0; //random number tbd actual assuming even number is reciever
-bool role = 0;
-RF24 radio(11,12); //SPI pin bus 11,12 (MOSI/MISO) may need to be changed
-byte addresses[][6] = {"1Node","2Node"}; //this is left as is from code may need change
-
+RF24 radio (9,10); //SPI pin bus 11,12 (MOSI/MISO) may need to be changed
+uint8_t RadioId[] = {0xc8, 0x1a, 0x23, 0xd1, 0xbe}; //chosen at random to be different from other radios
 
 
 void setup() {
@@ -30,11 +27,7 @@ void setup() {
   */
   radio.setPALevel(RF24_PA_LOW);
   
-  // Open a writing and reading pipe on each radio, with opposite addresses
-  if(!radioNumber){ //this should always be true, just modified from origional, below is the "else" portion from that code
-    radio.openWritingPipe(addresses[0]);
-    radio.openReadingPipe(1,addresses[1]);
-  }
+  radio.openReadingPipe(1, RadioId);
   
   // Start the radio listening for data
   radio.startListening();
@@ -45,63 +38,50 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly
-  int total=255; //from accel
-  int turn;  //from steering mechanism
-  int left;  //holds value to reduce left motor
-  int right; //hold value to reduce right motor
- // int righttotal; //this will be used if the motors do not match in speed
-  //int lefttotal; //see above
+  uint16_t data;
+  uint8_t* total = ((uint8_t*)&data); //from accel
+  static int8_t* turn = (((int8_t*)&data) + 1);  //from steering mechanism
+  uint8_t left;  //holds value to reduce left motor
+  uint8_t right; //hold value to reduce right motor
+ //int righttotal; //this will be used if the motors do not match in speed
+ //int lefttotal; //see above
   /* 
    *  OCR0A and OCR0B will be a value between a max value of 31
    *  and a min value of 24, this will be sent via hex (we might have to make this int
    *  I assume that
    *  Pin 5 will be left (OCRB), and Pin 6 will be right (OCRA) motors
   */
+   
+  //static uint16_t data;
+  if(radio.available())
+  {
+    while (radio.available()) {
+      radio.read(&data, sizeof(uint16_t));
+      //Serial.println(data);
+    }
 
-  /*
-   * if (radio.available()){
-   *  while (radio.available()){
-   *    radio.read(&total, sizeof(int));
-   *    radio.read(&turn, sizeof(int));
-   *    
-   *  }
-   * 
-   */
+  }
 
+  *total = map(*total, 0 , 255, 24, 31);
 
-  /* while (!radio.avialable()){}
-   *  
-   * if(radio.available()){
-   *  radio.read(&total, sizeof(int));
-   * }
-   *    
-   * while (!radio.avialable()){}
-   * 
-   * if (radio.available()){
-   *  radio.read(&turn, sizeof(int))
-   *  }
-   *  
-   *  radio.stopListening();
-   */
-
-  total = map(total, 0 , 255, 24, 31);
-
-  if ( turn == 0){ //assuming that we are going straight
+  if ( *turn == 0){ //assuming that we are going straight
     left = 0;
     right = 0;
   }
 
-  else if ( turn < 0){  //we want to turn left
-    left = map (turn, 0, -127, 0 , 7); //sets left as a value
+  else if ( *turn < 0){  //we want to turn left
+    left = map (*turn, 0, -127, 0 , 7); //sets left as a value
     right = 0;
   }
 
-  else if (turn > 0){  //we want ot turn right
-    right = map (turn, 0, 127, 0, 7);
+  else if (*turn > 0){  //we want ot turn right
+    right = map (*turn, 0, 127, 0, 7);
     left = 0;
   }
   
-  OCR0A = (total - right); //if right is <0 this will reduce the right wheel speed
-  OCR0B = (total - left); //if left is <0 this will reduce left wheel speed
+  OCR0A = (*total - right); //if right is <0 this will reduce the right wheel speed
+  OCR0B = (*total - left); //if left is <0 this will reduce left wheel speed
+  Serial.println(OCR0A);
+  Serial.println(OCR0B);
 
 }
