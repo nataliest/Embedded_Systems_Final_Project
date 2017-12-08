@@ -2,11 +2,12 @@
 #include <RF24.h>
 #include <RF24_config.h>
 #include <SPI.h>
-//#include "Internals.h"
+#define DEBUG
+#include "Internals.h"
 
 //Globals as set up in the "gettingstarted" radio program
-RF24 radio (9,10); //SPI pin bus 11,12 (MOSI/MISO) may need to be changed
-uint8_t RadioId[] = {0xc8, 0x1a, 0x23, 0xd1, 0xbe}; //chosen at random to be different from other radios
+//RF24 radio (9,10); //SPI pin bus 11,12 (MOSI/MISO) may need to be changed
+//uint8_t RadioId[] = {0xc8, 0x1a, 0x23, 0xd1, 0xbe}; //chosen at random to be different from other radios
 
 
 void setup() {
@@ -81,7 +82,12 @@ void loop() {
   
   OCR0A = (*total - right); //if right is <0 this will reduce the right wheel speed
   OCR0B = (*total - left); //if left is <0 this will reduce left wheel speed
-  Serial.println(OCR0A);
-  Serial.println(OCR0B);
+  debugln(OCR0A);
+  debugln();
+  debugln(OCR0B);
+  debugln();
+  debugln(data);
+  debugln();
+  debugln();
 
 }
