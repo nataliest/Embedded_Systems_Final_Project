@@ -99,8 +99,8 @@ void initialize()
 	//	  5: Automatically Start Conversion on postive edge of trigger signal
 	//	  4: Disable Interrupt Flag
 	//	  3: Disable Interrupts
-	//	2-0: Prescale Input clock by factor of 2 (minimum)
-	ADCSRA = 0b11100000;
+	//	2-0: Prescale Input clock by factor of 4 
+	ADCSRA = 0b11100010;
 
 	//ADCSRB
 	//	  7: Unused
