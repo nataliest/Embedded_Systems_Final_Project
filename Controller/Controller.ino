@@ -1,21 +1,22 @@
 #define DEBUG
 #include "Internals.h"
+uint16_t data = 0;
 
 void setup()
 {
 	initialize();
 	calibrateIMU();
+//Serial.begin(115200);
+//init_radio_controller();
 }
 
 void loop()
 {
+//Serial.println(++data);
+//radio.write(&data, sizeof(uint16_t));
 
-	// if programming failed, don't try to do anything
-	if (!dmpReady) return;
 
-	// wait for MPU interrupt or extra packet(s) available
-	while (!mpuInterrupt && fifoCount < packetSize);
-	
+  
 	uint16_t photo = photoVal();
 	float imu = imuVal();
 
@@ -23,6 +24,6 @@ void loop()
 	debug("\t");
 	debug(imu);
 	debug("\t");
-	mapAndSendData(photo, imu);
+	//mapAndSendData(photo, imu);
 	debugln();
 }

@@ -32,8 +32,8 @@
 ////////////////////////
 uint8_t RadioId[] = {0xc8, 0x1a, 0x23, 0xd1, 0xbe}; //chosen at random to be different from other radios
 
-const float ANGLE_MIN = -1.047f;
-const float ANGLE_MAX =  1.047f;
+const float ANGLE_MIN = -1.05;
+const float ANGLE_MAX =  1.05;
 
 uint16_t DIST_MIN = 0;
 uint16_t DIST_MAX = 0;
@@ -99,8 +99,8 @@ void initialize()
 	//	  5: Automatically Start Conversion on postive edge of trigger signal
 	//	  4: Disable Interrupt Flag
 	//	  3: Disable Interrupts
-	//	2-0: Prescale Input clock by factor of 2 (minimum)
-	ADCSRA = 0b11100000;
+	//	2-0: Prescale Input clock by factor of 4 
+	ADCSRA = 0b11100010;
 
 	//ADCSRB
 	//	  7: Unused
@@ -216,7 +216,7 @@ float getIMUX()
 
 void calibrateIMU()
 {
-	static const uint16_t CALIB_TIME = 5000;
+	static const uint16_t CALIB_TIME = 2500;
 	long init_time = millis();
 	float x_prev = 0;
 	float x_curr;
@@ -239,6 +239,7 @@ void calibrateIMU()
 		debugln(x_curr);
 		debug("prev\t");
 		debugln(x_prev);
+
 	}
 	while(x_curr != x_prev);
 
@@ -251,9 +252,19 @@ void calibrateIMU()
 
 float imuVal()
 {
+    // if programming failed, don't try to do anything
+  if (!dmpReady) return;
+
+  // wait for MPU interrupt or extra packet(s) available
+  while (!mpuInterrupt && fifoCount < packetSize);
 	float x = getIMUX();
 	float output = ((x-calib_offset < 0) ? max(ANGLE_MIN, x - calib_offset) : min(ANGLE_MAX, x - calib_offset));
-	// debug(ouptut);
+
+
+ if (calib_offset < 0) {
+    output *= -1;  
+  } 
+
 	return output;
 }
 
@@ -264,6 +275,7 @@ void mapAndSendData(const uint16_t& photo_value, const float& imu_value)
 	uint16_t squished = angle << 8 | dist;
 	debug(squished);
 	radio.write(&squished, sizeof(uint16_t));
+ Serial.println("got out ofm");
 }
 
 void init_radio_controller()
