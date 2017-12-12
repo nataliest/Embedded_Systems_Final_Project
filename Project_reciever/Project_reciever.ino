@@ -62,10 +62,7 @@ void loop() {
       radio.read(&data, sizeof(uint16_t));
       //Serial.println(data);
     }
-
-  }
-
-  *total = map(*total, 0 , 255, 24, 31);
+    *total = map(*total, 0 , 255, 24, 31);
   totalright = *total;
   totalleft = *total;
 
@@ -84,8 +81,8 @@ void loop() {
     left = 0;
   }
   
-  OCR0A = (*totalright - right); //if right is <0 this will reduce the right wheel speed
-  OCR0B = (*totalleft - left); //if left is <0 this will reduce left wheel speed
+  OCR0A = max (24,(totalright - right)); //if right is <0 this will reduce the right wheel speed
+  OCR0B = max (24, (totalleft - left)); //if left is <0 this will reduce left wheel speed
   Serial.println(OCR0A);
   Serial.println();
   Serial.println(OCR0B);
@@ -94,4 +91,8 @@ void loop() {
   Serial.println();
   Serial.println();
 
+
+  }
+
+  
 }
