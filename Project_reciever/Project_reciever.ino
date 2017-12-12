@@ -62,7 +62,10 @@ void loop() {
       radio.read(&data, sizeof(uint16_t));
       //Serial.println(data);
     }
-    *total = map(*total, 0 , 255, 24, 31);
+  
+
+  }
+*total = map(*total, 0 , 255, 24, 31);
   totalright = *total;
   totalleft = *total;
 
@@ -90,9 +93,6 @@ void loop() {
   Serial.println(data);
   Serial.println();
   Serial.println();
-
-
-  }
 
   
 }
