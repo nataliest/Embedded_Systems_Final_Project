@@ -66,7 +66,8 @@ void loop() {
 
 }
  //Serial.println(*total); 
-spd = map(*total, 0 , 255, 31,23 );
+  if (*total > 240) *total=255;
+  spd = map(*total, 0 , 255, 31,23 );
   totalright = spd;
   totalleft = spd;
 
@@ -76,24 +77,25 @@ spd = map(*total, 0 , 255, 31,23 );
   }
 
   else if ( *turn < 0){  //we want to turn right
-    left = map (*turn, 0, 127, 0 , 7); //sets left as a value
+    left = map (*turn, 0, -127, 0 , 7); //sets left as a value
     right = 0;
   }
 
   else if (*turn > 0){  //we want ot turn left
-    right = map (*turn, 0, -127, 0, 7);
+    right = map (*turn, 0, 127, 0, 7);
     left = 0;
   }
   
   OCR0A = max (23,(totalright - right)); //if right is <0 this will reduce the right wheel speed
   OCR0B = max (23, (totalleft - left)); //if left is <0 this will reduce left wheel speed
   
-  //Serial.println(OCR0A);
-  //Serial.println();
-  //Serial.println(OCR0B);
- // Serial.println();
   //Serial.println(*total);
   //Serial.println(spd);
   //Serial.println();
+  //Serial.println(left);
+  //Serial.println(right);
+  //Serial.println();
+  //Serial.println();
+  //Serial.println(spd);
   }
 
