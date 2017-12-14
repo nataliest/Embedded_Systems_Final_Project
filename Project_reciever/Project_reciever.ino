@@ -33,21 +33,22 @@ void setup() {
   
   // Start the radio listening for data
   radio.startListening();
-  Serial.begin (57600);
+  Serial.begin (115200);
 
 
   
 }
-
-void loop() {
-  // put your main code here, to run repeatedly
-  uint16_t data;
+  uint16_t data=255;
   uint8_t* total = (uint8_t*)&data; //from accel
+  uint8_t spd;
   static int8_t* turn = (((int8_t*)&data) + 1);  //from steering mechanism
   uint8_t left;  //holds value to reduce left motor
   uint8_t right; //hold value to reduce right motor
-  uint8_t totalright;
+  uint8_t totalright;  //hold total motor speed value
   uint8_t totalleft;
+void loop() {
+  // put your main code here, to run repeatedly
+
   /* 
    *  OCR0A and OCR0B will be a value between a max value of 31
    *  and a min value of 24, this will be sent via hex (we might have to make this int
@@ -63,35 +64,38 @@ void loop() {
       //Serial.println(data);
     }
 
-  }
-
-  *total = map(*total, 0 , 255, 24, 31);
-  totalright = *total;
-  totalleft = *total;
+}
+ //Serial.println(*total); 
+  if (*total > 240) *total=255;
+  spd = map(*total, 0 , 255, 31,23 );
+  totalright = spd;
+  totalleft = spd;
 
   if ( *turn == 0){ //assuming that we are going straight
     left = 0;
     right = 0;
   }
 
-  else if ( *turn < 0){  //we want to turn left
+  else if ( *turn < 0){  //we want to turn right
     left = map (*turn, 0, -127, 0 , 7); //sets left as a value
     right = 0;
   }
 
-  else if (*turn > 0){  //we want ot turn right
+  else if (*turn > 0){  //we want ot turn left
     right = map (*turn, 0, 127, 0, 7);
     left = 0;
   }
   
-  OCR0A = (*totalright - right); //if right is <0 this will reduce the right wheel speed
-  OCR0B = (*totalleft - left); //if left is <0 this will reduce left wheel speed
-  Serial.println(OCR0A);
-  Serial.println();
-  Serial.println(OCR0B);
-  Serial.println();
-  Serial.println(data);
-  Serial.println();
-  Serial.println();
+  OCR0A = max (23,(totalright - right)); //if right is <0 this will reduce the right wheel speed
+  OCR0B = max (23, (totalleft - left)); //if left is <0 this will reduce left wheel speed
+  
+  //Serial.println(*total);
+  //Serial.println(spd);
+  //Serial.println();
+  //Serial.println(left);
+  //Serial.println(right);
+  //Serial.println();
+  //Serial.println();
+  //Serial.println(spd);
+  }
 
-}
